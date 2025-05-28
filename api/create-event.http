@@ -2,8 +2,8 @@ POST http://localhost:8080/events
 content-type: application/json
 
 {
-    "name":"Event 1",
-    "description":"Description 1",
-    "location":"Location 1",
-    "dateTime":"2025-01-01T15:30:00.000Z"
+  "name": "Hackathon",
+  "description": "24 hour coding event",
+  "location": "New York",
+  "dateTime": "2025-06-01T10:00:00Z"
 }
