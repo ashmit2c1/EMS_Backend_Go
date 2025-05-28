@@ -54,5 +54,18 @@ func GetAllEvents() ([]Event, error) {
 		events = append(events, event)
 	}
 	return events, nil
+}
 
+func DeleteAllEvents() error {
+	query := `DELETE FROM events`
+	_, err := db.DB.Exec(query)
+	if err != nil {
+		return err
+	}
+	query2 := `DELETE FROM sqlite_sequence WHERE name='events'`
+	_, err = db.DB.Exec(query2)
+	if err != nil {
+		return err
+	}
+	return nil
 }
