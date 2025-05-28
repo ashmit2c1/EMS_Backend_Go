@@ -1,6 +1,7 @@
 package main
 
 import (
+	"ems_backend_go/db"
 	"ems_backend_go/models"
 	"net/http"
 
@@ -8,6 +9,7 @@ import (
 )
 
 func main() {
+	db.InitDB()
 	server := gin.Default()
 
 	server.GET("/events", getEvents)
@@ -17,7 +19,10 @@ func main() {
 }
 
 func getEvents(cntxt *gin.Context) {
-	events := models.GetAllEvents()
+	events, err := models.GetAllEvents()
+	if err != nil {
+		cntxt.JSON(http.StatusInternalServerError, gin.H{"message": "There was some error", "error": err.Error()})
+	}
 	cntxt.JSON(http.StatusOK, gin.H{"message": "GET Request", "events": events})
 }
 
@@ -28,8 +33,10 @@ func createEvent(cntxt *gin.Context) {
 	if err != nil {
 		cntxt.JSON(http.StatusBadRequest, gin.H{"message": "Could not parse data", "error": err})
 	}
-	event.ID = 1
 	event.CreatedBy = 1
-	event.Save()
+	err = event.Save()
+	if err != nil {
+		cntxt.JSON(http.StatusBadRequest, gin.H{"message": "Could not proceed with request", "error": err.Error()})
+	}
 	cntxt.JSON(http.StatusCreated, gin.H{"message": "POST Request", "event": event})
 }
