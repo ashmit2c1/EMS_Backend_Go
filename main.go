@@ -14,6 +14,7 @@ func main() {
 
 	server.GET("/events", getEvents)
 	server.POST("/events", createEvent)
+	server.DELETE("/events", deleteAllEvents)
 	server.Run(":8080")
 
 }
@@ -39,4 +40,12 @@ func createEvent(cntxt *gin.Context) {
 		cntxt.JSON(http.StatusBadRequest, gin.H{"message": "Could not proceed with request", "error": err.Error()})
 	}
 	cntxt.JSON(http.StatusCreated, gin.H{"message": "POST Request", "event": event})
+}
+
+func deleteAllEvents(cntxt *gin.Context) {
+	err := models.DeleteAllEvents()
+	if err != nil {
+		cntxt.JSON(http.StatusInternalServerError, gin.H{"message": "There was some error", "error": err.Error()})
+	}
+	cntxt.JSON(http.StatusOK, gin.H{"message": "DELETE Request"})
 }
