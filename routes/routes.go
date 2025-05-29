@@ -14,6 +14,7 @@ func GetRoutes(server *gin.Engine) {
 	server.GET("/events/:event_id", getEventByID)
 	server.POST("/events", createEvent)
 	server.DELETE("/events", deleteAllEvents)
+	server.PUT("/events/:event_id", updateEvent)
 	server.Run(":8080")
 }
 
@@ -59,4 +60,28 @@ func deleteAllEvents(cntxt *gin.Context) {
 		cntxt.JSON(http.StatusInternalServerError, gin.H{"message": "There was some error", "error": err.Error()})
 	}
 	cntxt.JSON(http.StatusOK, gin.H{"message": "DELETE Request"})
+}
+func updateEvent(cntxt *gin.Context) {
+	id, err := strconv.ParseInt(cntxt.Param("event_id"), 10, 64)
+	if err != nil {
+		cntxt.JSON(http.StatusBadRequest, gin.H{"message": "There was some problem in fetching the event", "error": err.Error()})
+		return
+	}
+	_, err = models.GetEventByID(id)
+	if err != nil {
+		cntxt.JSON(http.StatusInternalServerError, gin.H{"message": "Could not fetch the event", "error": err.Error()})
+		return
+	}
+	var updatedEvent models.Event
+	err = cntxt.ShouldBindJSON(&updatedEvent)
+	if err != nil {
+		cntxt.JSON(http.StatusBadRequest, gin.H{"message": "There was some error in fetching the event ID", "error": err.Error()})
+		return
+	}
+	updatedEvent.ID = id
+	err = updatedEvent.UpdateEvent()
+	if err != nil {
+		cntxt.JSON(http.StatusInternalServerError, gin.H{"message": "There was some error", "error": err.Error()})
+	}
+	cntxt.JSON(http.StatusOK, gin.H{"message": "UPDATE Request", "event": updatedEvent})
 }

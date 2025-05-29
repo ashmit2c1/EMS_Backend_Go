@@ -80,3 +80,21 @@ func DeleteAllEvents() error {
 	}
 	return nil
 }
+
+func (e Event) UpdateEvent() error {
+	query := `
+	UPDATE events
+	SET name = ?, description=?, location=?, dateTime=?
+	WHERE id = ? 
+	`
+	stmnt, err := db.DB.Prepare(query)
+	if err != nil {
+		return err
+	}
+	defer stmnt.Close()
+	_, err = stmnt.Exec(e.Name, e.Description, e.Location, e.DateTime, e.ID) // Use e.ID here
+	if err != nil {
+		return err
+	}
+	return nil
+}
