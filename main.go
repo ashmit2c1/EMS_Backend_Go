@@ -4,6 +4,7 @@ import (
 	"ems_backend_go/db"
 	"ems_backend_go/models"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -13,6 +14,7 @@ func main() {
 	server := gin.Default()
 
 	server.GET("/events", getEvents)
+	server.GET("/events/:event_id", getEventByID)
 	server.POST("/events", createEvent)
 	server.DELETE("/events", deleteAllEvents)
 	server.Run(":8080")
@@ -27,6 +29,19 @@ func getEvents(cntxt *gin.Context) {
 	cntxt.JSON(http.StatusOK, gin.H{"message": "GET Request", "events": events})
 }
 
+func getEventByID(cntxt *gin.Context) {
+	id, err := strconv.ParseInt(cntxt.Param("event_id"), 10, 64)
+	if err != nil {
+		cntxt.JSON(http.StatusBadRequest, gin.H{"message": "There was some error in fetching the event ID", "error": err.Error()})
+		return
+	}
+	event, err := models.GetEventByID(id)
+	if err != nil {
+		cntxt.JSON(http.StatusInternalServerError, gin.H{"message": "Could not fetch the event", "error": err.Error()})
+	}
+	cntxt.JSON(http.StatusOK, gin.H{"message": "GET Request", "event": event})
+
+}
 func createEvent(cntxt *gin.Context) {
 	var event models.Event
 	err := cntxt.ShouldBindJSON(&event)
