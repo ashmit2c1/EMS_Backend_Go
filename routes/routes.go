@@ -14,6 +14,7 @@ func GetRoutes(server *gin.Engine) {
 	server.GET("/events/:event_id", getEventByID)
 	server.POST("/events", createEvent)
 	server.DELETE("/events", deleteAllEvents)
+	server.DELETE("/events/:event_id", deleteEventByID)
 	server.PUT("/events/:event_id", updateEvent)
 	server.Run(":8080")
 }
@@ -84,4 +85,23 @@ func updateEvent(cntxt *gin.Context) {
 		cntxt.JSON(http.StatusInternalServerError, gin.H{"message": "There was some error", "error": err.Error()})
 	}
 	cntxt.JSON(http.StatusOK, gin.H{"message": "UPDATE Request", "event": updatedEvent})
+}
+
+func deleteEventByID(cntxt *gin.Context) {
+	id, err := strconv.ParseInt(cntxt.Param("event_id"), 10, 64)
+	if err != nil {
+		cntxt.JSON(http.StatusBadRequest, gin.H{"message": "There was some problem in fetching the event", "error": err.Error()})
+		return
+	}
+	event, err := models.GetEventByID(id)
+	if err != nil {
+		cntxt.JSON(http.StatusInternalServerError, gin.H{"message": "Could not fetch the event", "error": err.Error()})
+		return
+	}
+	err = event.DeleteByID()
+	if err != nil {
+		cntxt.JSON(http.StatusInternalServerError, gin.H{"message": "Could not delete event", "error": err.Error()})
+		return
+	}
+	cntxt.JSON(http.StatusOK, gin.H{"message": "Event deleted successfully"})
 }
