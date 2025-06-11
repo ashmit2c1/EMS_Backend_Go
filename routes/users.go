@@ -20,5 +20,13 @@ func signUp(cntxt *gin.Context) {
 		return
 	}
 	cntxt.JSON(http.StatusCreated, gin.H{"message": "User created successfully", "user": user})
+}
 
+func getAllUsers(cntxt *gin.Context) {
+	users, err := models.GetUsers()
+	if err != nil {
+		cntxt.JSON(http.StatusInternalServerError, gin.H{"message": "There was some error", "error": err.Error()})
+		return
+	}
+	cntxt.JSON(http.StatusOK, gin.H{"message": "GET Request", "users": users})
 }
