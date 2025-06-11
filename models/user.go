@@ -1,6 +1,9 @@
 package models
 
-import "ems_backend_go/db"
+import (
+	"ems_backend_go/db"
+	"ems_backend_go/utils"
+)
 
 type User struct {
 	ID       int64
@@ -15,7 +18,11 @@ func (u User) Save() error {
 		return err
 	}
 	defer stmnt.Close()
-	res, err := stmnt.Exec(u.Email, u.Password)
+	hashedPassword, err := utils.HashPassword(u.Password)
+	if err != nil {
+		return err
+	}
+	res, err := stmnt.Exec(u.Email, hashedPassword)
 	if err != nil {
 		return err
 	}
