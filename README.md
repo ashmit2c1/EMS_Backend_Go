@@ -457,5 +457,214 @@ return success
 This is how we update the events 
 
 ## Deleting `events`
-Now we are going to delete event based on `id` 
+Now we are going to delete event based on `id` , to this first we are going to create a route 
 
+
+```go 
+server.DELETE("/events/:event_id".deleteEventByID)
+```
+
+Once we have that done, we are going to create the method, since we are deleting the event by it's `id` we are going to first need the `event` itself, for this we are going to use the same logic we previously used to get the `event`
+
+
+Once we have set that up, we can go in the `models` file and write the method to delete the event from the database, for this we are going to create a new method `DeleteByID`
+
+In this method, we are going to first write the query which will be 
+
+```SQL
+DELETE FROM events WHERE id = ?
+```
+
+Now that we have written our query, we are going to prepare the query, it will result in a `stmnt` and `err` if there is any error, we are going to return the `error`
+
+Once that is done, we can execute the statement and move forward. The code for the `deleteByID` is as follows
+
+```Go
+func (event Event) DeleteByID() error {
+	query := `DELETE FROM events WHERE id=?`
+	stmnt, err := db.DB.Prepare(query)
+	if err != nil {
+		return err
+	}
+	defer stmnt.Close()
+	_, err = stmnt.Exec(event.ID)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+```
+
+Now in the `routes` method, it is going to return an `error` 
+- If there is an `error` then send the status code `InternalServerError` 
+- otherwise return the `StatusOK` 
+
+## Adding a `users` table to the project
+
+Now that we have covered most of the functionality surrounding the event structures, we are going to now work on the `user` aspect of the project
+
+For this we are going to create a `user` struct and set up a table in the database that will store the user data 
+
+For this we are going to go in our `db.go` file and before we create the `events` table we are going to create the `users` table 
+
+For this we are going to first write the query to create the `users` table 
+
+```SQL
+CREATE TABLE IF NOT EXISTS users(
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+email TEXT NOT NULL UNIQUE,
+password TEXT NOT NULL
+)
+```
+
+Once we have this, we are going to make changes in the events table now, we are going to add the following in `events` query
+
+```SQL
+user_id INTEGER
+FOREIGN KEY(user_id) REFERENCES users(id)
+```
+
+Now that we have made these changes, we are going to delete the current database that we have
+## Working on the sign up logic
+
+In the `models` package, we are going to add a new file called `users.go`, inside this we are going to define a `struct` that will be as follows, we are going to have the following attributes for the user struct 
+
+- `email`
+- `password`
+- `id`
+
+The `id` will be taken up automatically, `email` and `password` will be parsed from the request. Now next we are going to define the `Save` method in `users.go` file that will store the users to the database 
+
+Once we have created the `user` struct, we are going to write the method for creating the `user` for our application, this method will be similar in functionality to `createEvent` 
+
+The query to create a new user will be as follows
+
+```SQL 
+INSERT INTO users(email,password) VALUES(?,?)
+```
+
+Once we have done this, we are going to follow the same approach of preparing the query checking for errors and continue, the code for  `Save()` function is as follows
+
+
+```Go 
+func (u User) Save() error {
+	query := `INSERT INTO users(email,password) VALUES(?,?)`
+	stmnt, err := db.DB.Prepare(query)
+	if err != nil {
+		return err
+	}
+	defer stmnt.Close()
+	res, err := stmnt.Exec(u.Email, u.Password)
+	if err != nil {
+		return err
+	}
+	userID, err := res.LastInsertId()
+	if err != nil {
+		return err
+	}
+	u.ID = userID
+	return nil
+}
+```
+
+Now we are going to create a `route ` for this, in the `routes.go` file we are going to create 
+
+```GO 
+server.POST("/signup",signUp)
+```
+
+and then in `users.go` file we will create the `signUp` method, since we are going to be fetching the data from the request, we are going to bind the data first using `ShouldBindJSON` , then call in the `Save()` function 
+
+
+```Go
+func signUp(cntxt *gin.Context) {
+	var user models.User
+	err := cntxt.ShouldBindJSON(&user)
+
+	if err != nil {
+		cntxt.JSON(http.StatusBadRequest, gin.H{"message": "Could not parse data", "error": err})
+	}
+	err = user.Save()
+	if err != nil {
+		cntxt.JSON(http.StatusInternalServerError, gin.H{"message": "There was some error", "error": err.Error()})
+		return
+	}
+	cntxt.JSON(http.StatusCreated, gin.H{"message": "User created successfully", "user": user})
+}
+
+```
+
+## Function to get all the users on the system
+To get the list of the users in the system, we are going to follow the same approach we did for retrieving all the `events` 
+
+- Route 
+```Go
+func getAllUsers(cntxt *gin.Context) {
+	users, err := models.GetUsers()
+	if err != nil {
+		cntxt.JSON(http.StatusInternalServerError, gin.H{"message": "There was some error", "error": err.Error()})
+		return
+	}
+	cntxt.JSON(http.StatusOK, gin.H{"message": "GET Request", "users": users})
+}
+
+```
+
+`GetUsers`function 
+
+```Go 
+func GetUsers() ([]User, error) {
+	query := `SELECT * FROM users`
+	rows, err := db.DB.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var users []User
+	for rows.Next() {
+		var user User
+		err := rows.Scan(&user.ID, &user.Email, &user.Password)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, user)
+	}
+	return users, nil
+
+}
+```
+
+Do note that we can add the functionality to get user details, delete users, delete users by `id` similar to how we did with the `events` 
+## Hashing the password 
+
+Currently in our application we are storing the passwords as plain text, which is not a good practice as this will allow anyone to see the password of any user present in the system. So we are going to hash the password using encryption 
+
+We are going to get the package in our project 
+
+```Go
+go get -u golang.org/x/crypto
+```
+
+
+Now we are going to create a new package for our project `utils` inside this we create a new file called `hash.go` 
+
+Inside this we are going to create a method `hashPassword` for this we are going to 
+
+```Go 
+func HashPassword(password string) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+	return string(bytes), err
+}
+```
+
+And now in the `user.go` file before Executing the statement, we are going add the line as follows
+
+```Go
+hashedPassword,err:=utils.HashPassword(u.Password);
+if err!=nil {
+	return err
+}
+res,err:=stmt.Exec(u.Email,hashedPassword)
+```
+
+Now we hashed the password in the database 
