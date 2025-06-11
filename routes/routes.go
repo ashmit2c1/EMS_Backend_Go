@@ -9,14 +9,17 @@ import (
 )
 
 func GetRoutes(server *gin.Engine) {
-
+	// EVENT METHODS
 	server.GET("/events", getEvents)
 	server.GET("/events/:event_id", getEventByID)
 	server.POST("/events", createEvent)
 	server.DELETE("/events", deleteAllEvents)
 	server.DELETE("/events/:event_id", deleteEventByID)
 	server.PUT("/events/:event_id", updateEvent)
+	// USER METHODS
+	server.POST("/signup", signUp)
 	server.Run(":8080")
+
 }
 
 func getEvents(cntxt *gin.Context) {
