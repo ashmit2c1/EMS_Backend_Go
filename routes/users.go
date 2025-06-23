@@ -2,6 +2,7 @@ package routes
 
 import (
 	"ems_backend_go/models"
+	"ems_backend_go/utils"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -20,8 +21,26 @@ func loginUser(cntxt *gin.Context) {
 		cntxt.JSON(http.StatusUnauthorized, gin.H{"message": "There was some error", "error": err.Error()})
 		return
 	}
-	cntxt.JSON(http.StatusOK, gin.H{"message": "User logged in the system"})
-	return
+	userID, err := models.FetchIDByEmail(user.Email)
+	if err != nil {
+		cntxt.JSON(http.StatusInternalServerError, gin.H{
+			"message": "Failed to retrieve user ID",
+			"error":   err.Error(),
+		})
+		return
+	}
+	token, err := utils.GenerateToken(user.Email, userID)
+	if err != nil {
+		cntxt.JSON(http.StatusInternalServerError, gin.H{
+			"message": "Failed to generate token",
+			"error":   err.Error(),
+		})
+		return
+	}
+	cntxt.JSON(http.StatusOK, gin.H{
+		"message": "User logged in successfully",
+		"token":   token,
+	})
 }
 func signUp(cntxt *gin.Context) {
 	var user models.User
