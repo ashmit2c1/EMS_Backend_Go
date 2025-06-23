@@ -69,3 +69,14 @@ func (u User) ValidateCredentials() error {
 	}
 	return errors.New("Invalid Credentials")
 }
+
+func FetchIDByEmail(email string) (int64, error) {
+	var id int64
+	query := `SELECT id FROM users WHERE email=?`
+	row := db.DB.QueryRow(query, email)
+	err := row.Scan(&id)
+	if err != nil {
+		return 0, err
+	}
+	return id, nil
+}
