@@ -7,6 +7,22 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func loginUser(cntxt *gin.Context) {
+	var user models.User
+	err := cntxt.ShouldBindJSON(&user)
+
+	if err != nil {
+		cntxt.JSON(http.StatusBadRequest, gin.H{"message": "There was some error", "error": err.Error()})
+		return
+	}
+	err = user.ValidateCredentials()
+	if err != nil {
+		cntxt.JSON(http.StatusUnauthorized, gin.H{"message": "There was some error", "error": err.Error()})
+		return
+	}
+	cntxt.JSON(http.StatusOK, gin.H{"message": "User logged in the system"})
+	return
+}
 func signUp(cntxt *gin.Context) {
 	var user models.User
 	err := cntxt.ShouldBindJSON(&user)

@@ -3,6 +3,7 @@ package models
 import (
 	"ems_backend_go/db"
 	"ems_backend_go/utils"
+	"errors"
 )
 
 type User struct {
@@ -35,7 +36,7 @@ func (u User) Save() error {
 }
 
 func GetUsers() ([]User, error) {
-	query := `SELECT * FROM users`
+	query := `SELECT id, email, password FROM users`
 	rows, err := db.DB.Query(query)
 	if err != nil {
 		return nil, err
@@ -52,4 +53,19 @@ func GetUsers() ([]User, error) {
 	}
 	return users, nil
 
+}
+
+func (u User) ValidateCredentials() error {
+	query := `SELECT password FROM users WHERE email=?`
+	row := db.DB.QueryRow(query, u.Email)
+	var retrievedPassword string
+	err := row.Scan(&retrievedPassword)
+	if err != nil {
+		return err
+	}
+	passwordIsValid := utils.CheckHashedPassword(u.Password, retrievedPassword)
+	if passwordIsValid == true {
+		return nil
+	}
+	return errors.New("Invalid Credentials")
 }
