@@ -18,6 +18,7 @@ func GetRoutes(server *gin.Engine) {
 	server.PUT("/events/:event_id", updateEvent)
 	// USER METHODS
 	server.POST("/signup", signUp)
+	server.POST("/login", loginUser)
 	server.GET("/users", getAllUsers)
 	server.Run(":8080")
 
