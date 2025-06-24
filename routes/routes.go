@@ -2,6 +2,7 @@ package routes
 
 import (
 	"ems_backend_go/models"
+	"ems_backend_go/utils"
 	"net/http"
 	"strconv"
 
@@ -46,8 +47,18 @@ func getEventByID(cntxt *gin.Context) {
 
 }
 func createEvent(cntxt *gin.Context) {
+	token := cntxt.Request.Header.Get("Authorisation")
+	if token == "" {
+		cntxt.JSON(http.StatusUnauthorized, gin.H{"message": "Not Authorised"})
+		return
+	}
+	err := utils.VerifyToken(token)
+	if err != nil {
+		cntxt.JSON(http.StatusUnauthorized, gin.H{"message": "Not Authorised", "error": err.Error()})
+		return
+	}
 	var event models.Event
-	err := cntxt.ShouldBindJSON(&event)
+	err = cntxt.ShouldBindJSON(&event)
 
 	if err != nil {
 		cntxt.JSON(http.StatusBadRequest, gin.H{"message": "Could not parse data", "error": err})
