@@ -1,10 +1,6 @@
 ## Planning the REST API 
 REST stands for Representational State Transfer
 
-
-
-
-
 **Planning the API**
 A Go-Powered Event Booking REST API 
 - `GET/events`
@@ -668,3 +664,282 @@ res,err:=stmt.Exec(u.Email,hashedPassword)
 ```
 
 Now we hashed the password in the database 
+
+## Login Method 
+
+Now that we have created a signup method for our users, we want to login the existing users in our system, for this we are going to do as follows
+- Get the `email` and `password` from the request 
+- Find the `hashedpassword` from the database using the `email` and `password` 
+- Compare the password from the request and the `hashedpassword` 
+
+We are going to start by first creating the route 
+
+```Go
+server.POST("/login",loginUser)
+```
+
+Now in our `users.go` file where we are defining the `user` method, we are going to create a new one named `loginUser`
+
+Once we have that done, we are going to follow what we have been doing - 
+- Bind all the data from the request using `ShouldBindJSON`
+
+Once we have all that data, we are going to validate the credentials of the user 
+
+
+```Go
+func loginUser(cntxt *gin.Context) {
+	var user models.User
+	err:=cntxt.ShouldBindJSON(&user)
+
+	if err!=nil {
+		cntxt.JSON(http.StatusBadRequest, gin.H{"message": "There was some error", "error": err.Error()})
+		return
+	}
+	err = user.ValidateCredentials
+}
+```
+
+Now in our `user.go` file we are going to work on the method of `ValidateCredentials`
+
+Now to Validate our user credentials,
+- We first need to find the `password` of that user from that database
+- Once we have that password, we want to check if that `password` in the request and the `hashedPassword` are same
+- If they are we return nothing else we return an `error`
+
+
+```Go
+func (u User) ValidateCredentials() error {
+	query:=`SELECT password FROM users WHERE email=?`
+	row:=db.DB.QueryRow(query,u.Email)
+	var retrievedPassword string 
+	err:=row.Scan(&retrievedPassword)
+	if err!=nil {
+		return err
+	}
+	passwordIsValid:=utils.Check(u.Password,retrievedPassword)
+	if passwordIsValid==true {
+		return nil
+	}
+	return errors.New("Invalid Credentials")
+}
+```
+
+Now in this code we have used a new method `Check` in the `utils` package 
+
+```Go
+func Check(password string, hashedPassword string) bool {
+	err:=bcrypt.CompareHashedPasswword([]byte(password),[]byte(hashedPassword))
+	if err==nil {
+		return true
+	}
+	return false
+}
+```
+
+This way we have completed the `login` method for our application 
+
+
+## Generating `JWT` Auth tokens
+
+To use `JWT` in our project, we will first add the package as follows
+
+```GO
+go get -u github.com/golang-jwt/jwt/v5
+```
+
+Once we have the package installed, we are going to create a new file in our `utils` package named `jwt.go` here we are going to write the logic related to our JWT
+
+First we want to generate the tokens, for this we are going to first write the method that allows us to generate the JWT tokens based on the given user information
+
+We will generate a token based on the following 
+- `email`
+- `password`
+- `exp` - This will be the expiration of the token
+
+Once we have this done, we can generate the token, we will also require a secret key for our JWT token generation which will be as follows 
+
+```go
+var secretKey = []byte(os.Getenv("JWT_SECRET"))
+
+func GenerateToken(email string, userID int64) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"email":  email,
+		"userID": userID,
+		"exp":    time.Now().Add(time.Hour * 2).Unix(),
+	})
+	return token.SignedString(secretKey)
+}
+```
+
+The secret key can be stored in `.env` file in our project 
+
+Now once we are trying to login our user, we can use a `JWT` token there to validate the user even further, for token generation we need two things, we need the user email and the user ID. 
+
+- First we will find the user `id` using the email address provided
+
+In `user.go` file we are going to create a new method, `FetchIDByEmail` where we are going to pass the user email and find the ID associated with that email address
+
+```Go 
+func FetchIDByEmail(email string) (int64, error) {
+	var id int64
+	query := `SELECT id FROM users WHERE email=?`
+	row := db.DB.QueryRow(query, email)
+	err := row.Scan(&id)
+	if err != nil {
+		return 0, err
+	}
+	return id, nil
+}
+```
+
+Once we have the `userEmail` and `userID` we can generate the JWT token 
+
+```Go 
+	userID, err := models.FetchIDByEmail(user.Email)
+	if err != nil {
+		cntxt.JSON(http.StatusInternalServerError, gin.H{
+			"message": "Failed to retrieve user ID",
+			"error":   err.Error(),
+		})
+		return
+	}
+	token, err := utils.GenerateToken(user.Email, userID)
+	if err != nil {
+		cntxt.JSON(http.StatusInternalServerError, gin.H{
+			"message": "Failed to generate token",
+			"error":   err.Error(),
+		})
+		return
+	}
+	cntxt.JSON(http.StatusOK, gin.H{
+		"message": "User logged in successfully",
+		"token":   token,
+	})
+}
+```
+
+Now when we try to log in a user, we will get a JWT token in the response as well 
+
+## Adding Token Verification 
+Now we are going to add token verification, this is done so that the routes / methods in our application that involve in changing the data, can be protected and thus can only be edited by authorised individuals, for this we are going to add token verification, currently in our project 
+- `createEvent`
+- `updateEvent`
+- `deleteEvent`
+- `deleteAllEvents`
+
+are the methods that are manipulating the data in the database, so we are going to add route protection to these methods 
+
+Now we are going to the `createEvent`handler function, so we are going to extract the token from the request header, we are going to request to read the `Authorisation` header hence 
+
+```Go 
+token:=cntxt.Request.Header.Get("Authorization")
+```
+
+Now if we have an empty string, that is there is no authorisation 
+
+```Go 
+if token=""{
+	cntxt.JSON(http.StatusUnAuthorised,gin.H{"message":"Could not get security token"})
+	return
+}
+```
+
+Now it is possible that we do have a token but that token is invalid, we are going to check if the token is verified, for this we are going to create another function in `utils`package that is going to check our token 
+
+
+For this we are going to write a new method that is going to be used to verify the token that we are using
+
+- First we are going to parse the token and run it through a `checkfunction` where we can verify the signing method 
+- Once we have that done we are going to check if the `parsedToken` is valid or not 
+- If it is valid, then we are going say the token is valid otherwise we return an error 
+
+```GO
+func checkfunction(token *jwt.Token) (interface{}, error) {
+	_, err := token.Method.(*jwt.SigningMethodHMAC)
+	if err == false {
+		return nil, errors.New("Unexpected Signing Method")
+	}
+	return secretKey, nil
+}
+func VerifyToken(token string) error {
+	parsedToken, err := jwt.Parse(token, checkfunction)
+	if err != nil {
+		return errors.New("Could not parse the token")
+	}
+	check := parsedToken.Valid
+	if check == false {
+		return errors.New("Token is not valid")
+	}
+	return nil
+}
+```
+
+## Adding UserID to the created Events
+Till now all the events that are created by the `user` have the createdBy `user-id` 1 this is hardcoded in our system, we want to make sure that now the events capture the user-id of the user that has created them 
+
+For this we are now going to `map` the claims that are made in the token, inside our verify token function, we are going to now map the claims of the token 
+
+For this first, we are going to write the same `verifyToken` function as it is, once we are done with that we add the following 
+
+```Go
+claims,ok:=parsedToken.Claims(jwt.MapClaims)
+if ok==false{
+	return 0,errors.New("Could not map claims from the token")
+}
+userID,ok:=claims["userID"].(float64) 
+
+if ok==false {
+	return 0,errors.New("UserID not found in the token")
+}
+return int64(userID),nil
+```
+
+Now in our `createEvent` method, we can fetch this `userID` and set 
+
+```go
+userID, err := utils.GetUserIDFromToken(token)
+event.CreatedBy=int(userID)
+```
+
+This way now each event will be associated with the user-id that is associated with the JWT authentication token of the user trying to create event
+
+## Adding Authentication Middleware 
+
+Now since we are having multiple routes that will need protection, we cannot write the logic again and again for all the routes again and again, instead what we can do is create a middleware, we are going to create new folder in the project and name it `middleware` 
+
+Inside this we are going to create a function named `Authenticate` this function is going to take care of the token authentication part, once we are done with that 
+
+
+```Go 
+package middleware
+
+import (
+	"ems_backend_go/utils"
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+)
+
+func Authenticate(cntxt *gin.Context) {
+	token := cntxt.Request.Header.Get("Authorisation")
+	if token == "" {
+		cntxt.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"message": "Not Authorised"})
+		return
+	}
+	err := utils.VerifyToken(token)
+	if err != nil {
+		cntxt.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": "There was some error", "error": err.Error()})
+		return
+	}
+	cntxt.Next()
+}
+```
+
+Once we have done this, we can go in the place where we have written all our routes, and the routes that do require our protection, we are going to add this function first in front of them 
+
+
+```Go
+server.POST("/events",middleware.Authenticate,createEvent)
+```
+
+Here now the first `Authenticate` function will run before the `createEvent` function 
