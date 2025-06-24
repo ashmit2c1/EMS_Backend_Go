@@ -38,3 +38,23 @@ func VerifyToken(token string) error {
 	}
 	return nil
 }
+
+func GetUserIDFromToken(token string) (int64, error) {
+	parsedToken, err := jwt.Parse(token, checkfunction)
+	if err != nil {
+		return 0, errors.New("Could not parse the token")
+	}
+	if !parsedToken.Valid {
+		return 0, errors.New("Token is not valid")
+	}
+	claims, ok := parsedToken.Claims.(jwt.MapClaims)
+	if !ok {
+		return 0, errors.New("Could not extract claims from token")
+	}
+	userID, ok := claims["userID"].(float64) // Claims might be float64 in JWT
+	if !ok {
+		return 0, errors.New("userID not found in token")
+	}
+
+	return int64(userID), nil
+}

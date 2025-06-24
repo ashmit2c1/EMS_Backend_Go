@@ -53,17 +53,21 @@ func createEvent(cntxt *gin.Context) {
 		return
 	}
 	err := utils.VerifyToken(token)
+	userID, err := utils.GetUserIDFromToken(token)
+	if err != nil {
+		cntxt.JSON(http.StatusInternalServerError, gin.H{"message": "There was some error", "error": err.Error()})
+		return
+	}
 	if err != nil {
 		cntxt.JSON(http.StatusUnauthorized, gin.H{"message": "Not Authorised", "error": err.Error()})
 		return
 	}
 	var event models.Event
 	err = cntxt.ShouldBindJSON(&event)
-
 	if err != nil {
 		cntxt.JSON(http.StatusBadRequest, gin.H{"message": "Could not parse data", "error": err})
 	}
-	event.CreatedBy = 1
+	event.CreatedBy = int(userID)
 	err = event.Save()
 	if err != nil {
 		cntxt.JSON(http.StatusBadRequest, gin.H{"message": "Could not proceed with request", "error": err.Error()})
