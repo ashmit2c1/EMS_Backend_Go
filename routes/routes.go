@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"ems_backend_go/middleware"
 	"ems_backend_go/models"
 	"ems_backend_go/utils"
 	"net/http"
@@ -13,10 +14,11 @@ func GetRoutes(server *gin.Engine) {
 	// EVENT METHODS
 	server.GET("/events", getEvents)
 	server.GET("/events/:event_id", getEventByID)
-	server.POST("/events", createEvent)
-	server.DELETE("/events", deleteAllEvents)
-	server.DELETE("/events/:event_id", deleteEventByID)
-	server.PUT("/events/:event_id", updateEvent)
+	// PROTECTED METHODS
+	server.POST("/events", middleware.Authenticate, createEvent)
+	server.DELETE("/events", middleware.Authenticate, deleteAllEvents)
+	server.DELETE("/events/:event_id", middleware.Authenticate, deleteEventByID)
+	server.PUT("/events/:event_id", middleware.Authenticate, updateEvent)
 	// USER METHODS
 	server.POST("/signup", signUp)
 	server.POST("/login", loginUser)
@@ -47,26 +49,13 @@ func getEventByID(cntxt *gin.Context) {
 
 }
 func createEvent(cntxt *gin.Context) {
-	token := cntxt.Request.Header.Get("Authorisation")
-	if token == "" {
-		cntxt.JSON(http.StatusUnauthorized, gin.H{"message": "Not Authorised"})
-		return
-	}
-	err := utils.VerifyToken(token)
-	userID, err := utils.GetUserIDFromToken(token)
-	if err != nil {
-		cntxt.JSON(http.StatusInternalServerError, gin.H{"message": "There was some error", "error": err.Error()})
-		return
-	}
-	if err != nil {
-		cntxt.JSON(http.StatusUnauthorized, gin.H{"message": "Not Authorised", "error": err.Error()})
-		return
-	}
 	var event models.Event
-	err = cntxt.ShouldBindJSON(&event)
+	err := cntxt.ShouldBindJSON(&event)
 	if err != nil {
 		cntxt.JSON(http.StatusBadRequest, gin.H{"message": "Could not parse data", "error": err})
 	}
+	token := cntxt.Request.Header.Get("Authorisation")
+	userID, err := utils.GetUserIDFromToken(token)
 	event.CreatedBy = int(userID)
 	err = event.Save()
 	if err != nil {
