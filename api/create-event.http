@@ -1,6 +1,6 @@
 POST http://localhost:8080/events
 content-type: application/json
-Authorisation: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFzaG1pdGNodWdoM0BnbWFpbC5jb20iLCJleHAiOjE3NTA3ODE3NDQsInVzZXJJRCI6MX0.qelPtkYb4tKUHrV-p1HTvQX6RapkVY-dJiT4pFGh9Zo
+Authorisation: {auth_token}
 
 {
   "name": "Event By Ashmit Chugh",
