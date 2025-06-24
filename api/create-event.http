@@ -1,9 +1,10 @@
 POST http://localhost:8080/events
 content-type: application/json
+Authorisation: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFzaG1pdGNodWdoM0BnbWFpbC5jb20iLCJleHAiOjE3NTA3ODE3NDQsInVzZXJJRCI6MX0.qelPtkYb4tKUHrV-p1HTvQX6RapkVY-dJiT4pFGh9Zo
 
 {
-  "name": "Hackathon",
-  "description": "24 hour coding event",
-  "location": "New York",
+  "name": "Event By Ashmit Chugh",
+  "description": "Ashmit's Event",
+  "location": "Chandigarh",
   "dateTime": "2025-06-01T10:00:00Z"
 }
