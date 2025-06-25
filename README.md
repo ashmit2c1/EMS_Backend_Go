@@ -943,3 +943,153 @@ server.POST("/events",middleware.Authenticate,createEvent)
 ```
 
 Here now the first `Authenticate` function will run before the `createEvent` function 
+
+## Adding Authorisation to users editing events
+We want that the event that is created by a particular `user` should only be be able to be edited by the same user. To make this, we are going to add an extra step in the update event method 
+
+
+What we are going to do is that when we get the event we are going to edit, we are going to retrieve the `createdBy` id of the given event, and then get the `userID` from the token and compare, if the `userID` from the token and `createdBy` match, only then we will allow to make the changes 
+
+To do this, we are simply going to get the `event.CreatedBy` and `userID` from the token and match them, if they are the same we let the method execute further otherwise we return `StatusUnauthorized`
+
+```Go 
+	ev, err := models.GetEventByID(id)
+	if err != nil {
+		cntxt.JSON(http.StatusInternalServerError, gin.H{"message": "Could not fetch the event", "error": err.Error()})
+		return
+	}
+	token := cntxt.Request.Header.Get("Authorisation")
+	usID, err := utils.GetUserIDFromToken(token)
+
+	if int64(ev.CreatedBy) != usID {
+		cntxt.JSON(http.StatusUnauthorized, gin.H{"message": "You are not authorised to update this event"})
+		return
+	}
+```
+
+We can use the exact same logic when it comes to deletion as well 
+
+## Adding a registrations table
+Now we are going to add the registrations table, that is going to allow the user to register for any event 
+
+First thing we are going to do is create the `registrations` table, for this we are going to write the query as follows
+
+```SQL
+CREATE TABLE IF NOT EXISTS registrations(
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	event_id INTEGER,
+	user_id INTEGER,
+	FOREIGN KEY(event_id) REFERENCES events(id),
+	FOREIGN KEY(user+id) REFERENCES users(id)
+)
+```
+
+## Registering users to event and cancelling registration
+Once we are done creating the table, that we are going to create two new route handlers for event registrations, we need to have only authenticated and logged in users, to be able to register for our events, thus to make sure that happens, we are going to use `middleware.Authenticate` 
+
+```GO
+server.POST("/events/:id/register", middleware.Authenticate, registerForEvent)
+server.DELETE("/events/:id/register", middleware.Authenticate, cancelRegistrationForEvent)
+```
+
+Here we have defined two methods, one is for registering a user and the other is to cancel the event registrations 
+
+For registering the user, we are going to get the `userID` and the `eventID` , the `userID` can be obtained from the token and the event that we want to register for can be obtained from the request itself 
+
+```Go
+	token := cntxt.Request.Header.Get("Authorisation")
+	usID, err := utils.GetUserIDFromToken(token)
+	if err != nil {
+		cntxt.JSON(http.StatusInternalServerError, gin.H{"message": "There was some error in parsing"})
+		return
+	}
+	eventId, err := strconv.ParseInt(cntxt.Param("id"), 10, 64)
+	if err != nil {
+		cntxt.JSON(http.StatusBadRequest, gin.H{"message": "There was some error in fetching the event ID", "error": err.Error()})
+		return
+	}
+```
+
+Now once we have done, we can fetch event by it's id using `GetEventByID` method. Once we have that event, we are going to register the user to that event using `userID`
+
+
+```Go
+	event, err := models.GetEventByID(eventId)
+	if err != nil {
+		cntxt.JSON(http.StatusInternalServerError, gin.H{"message": "There was some error in parsing"})
+		return
+	}
+	err = event.Register(usID)
+	if err != nil {
+		cntxt.JSON(http.StatusInternalServerError, gin.H{"message": "There was some error in registering", "error": err.Error()})
+		return
+	}
+	cntxt.JSON(http.StatusOK, gin.H{"message": "Congratulations you have registered for the event"})
+
+```
+
+For this we are going to write  a `Register` function, this register function is going to insert the values in a SQL query that is going to store the data in our `registrations` table 
+
+```GO
+func (e Event) Register(userID int64) error {
+	query := `:INSERT INTO registrations(event_id,user_id) VALUES(?,?)`
+	stmt, err := db.DB.Prepare(query)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	_, err = stmt.Exec(e.ID, userID)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+```
+
+This way we have registered a user for the event 
+
+Now we also want to cancel registrations for this we are going to simply 
+
+```GO
+ func cancelRegistrationForEvent(cntxt *gin.Context) {
+	token := cntxt.Request.Header.Get("Authorisation")
+	usID, err := utils.GetUserIDFromToken(token)
+	if err != nil {
+		cntxt.JSON(http.StatusInternalServerError, gin.H{"message": "There was some error in parsing"})
+		return
+	}
+	eventId, err := strconv.ParseInt(cntxt.Param("id"), 10, 64)
+	if err != nil {
+		cntxt.JSON(http.StatusBadRequest, gin.H{"message": "There was some error in fetching the event ID", "error": err.Error()})
+		return
+	}
+	var event models.Event
+	event.ID = eventId
+	err = event.CancelRegistration(usID)
+	if err != nil {
+		cntxt.JSON(http.StatusInternalServerError, gin.H{"message": "There was some error in parsing"})
+		return
+	}
+	cntxt.JSON(http.StatusOK, gin.H{"message": "Your registratios has been cancelled"})
+}
+
+```
+
+and 
+
+```Go
+func (e Event) CancelRegistration(userID int64) error {
+	query := `DELETE FROM registrations WHERE event_id=? AND user_id=?`
+	stmt, err := db.DB.Prepare(query)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	_, err = stmt.Exec(e.ID, userID)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+```
