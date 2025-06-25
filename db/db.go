@@ -53,7 +53,7 @@ func createTables() {
 			event_id INTEGER,
 			user_id INTEGER,
 			FOREIGN KEY(event_id) REFERENCES events(id),
-			FOREIGN KEY(user+id) REFERENCES users(id)
+			FOREIGN KEY(user_id) REFERENCES users(id)
 		)
 	`
 	_, err = DB.Exec(createRegistrationsTable)
