@@ -1,10 +1,10 @@
 POST http://localhost:8080/events
 content-type: application/json
-Authorisation: {auth_token}
+Authorization: {auth_token}
 
 {
-  "name": "Event By Ashmit Chugh",
-  "description": "Ashmit's Event",
+  "name": "Event By Simran",
+  "description": "Simran's event",
   "location": "Chandigarh",
   "dateTime": "2025-06-01T10:00:00Z"
 }

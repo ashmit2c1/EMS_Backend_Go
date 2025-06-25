@@ -77,9 +77,16 @@ func updateEvent(cntxt *gin.Context) {
 		cntxt.JSON(http.StatusBadRequest, gin.H{"message": "There was some problem in fetching the event", "error": err.Error()})
 		return
 	}
-	_, err = models.GetEventByID(id)
+	ev, err := models.GetEventByID(id)
 	if err != nil {
 		cntxt.JSON(http.StatusInternalServerError, gin.H{"message": "Could not fetch the event", "error": err.Error()})
+		return
+	}
+	token := cntxt.Request.Header.Get("Authorisation")
+	usID, err := utils.GetUserIDFromToken(token)
+
+	if int64(ev.CreatedBy) != usID {
+		cntxt.JSON(http.StatusUnauthorized, gin.H{"message": "You are not authorised to update this event"})
 		return
 	}
 	var updatedEvent models.Event

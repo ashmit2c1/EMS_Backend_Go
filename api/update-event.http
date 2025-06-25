@@ -1,5 +1,6 @@
-PUT http://localhost:8080/events/3
+PUT http://localhost:8080/events/1
 content-type: application/json
+Authorisation: {auth_token}
 
 {
     "name":"Updated Event",
