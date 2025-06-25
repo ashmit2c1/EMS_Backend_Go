@@ -36,5 +36,23 @@ func registerForEvent(cntxt *gin.Context) {
 }
 
 func cancelRegistrationForEvent(cntxt *gin.Context) {
-
+	token := cntxt.Request.Header.Get("Authorisation")
+	usID, err := utils.GetUserIDFromToken(token)
+	if err != nil {
+		cntxt.JSON(http.StatusInternalServerError, gin.H{"message": "There was some error in parsing"})
+		return
+	}
+	eventId, err := strconv.ParseInt(cntxt.Param("id"), 10, 64)
+	if err != nil {
+		cntxt.JSON(http.StatusBadRequest, gin.H{"message": "There was some error in fetching the event ID", "error": err.Error()})
+		return
+	}
+	var event models.Event
+	event.ID = eventId
+	err = event.CancelRegistration(usID)
+	if err != nil {
+		cntxt.JSON(http.StatusInternalServerError, gin.H{"message": "There was some error in parsing"})
+		return
+	}
+	cntxt.JSON(http.StatusOK, gin.H{"message": "Your registratios has been cancelled"})
 }

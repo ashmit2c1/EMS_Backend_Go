@@ -36,7 +36,7 @@ func createEvent(cntxt *gin.Context) {
 	if err != nil {
 		cntxt.JSON(http.StatusBadRequest, gin.H{"message": "Could not parse data", "error": err})
 	}
-	token := cntxt.Request.Header.Get("Authorisation")
+	token := cntxt.Request.Header.Get("Authorization")
 	userID, err := utils.GetUserIDFromToken(token)
 	event.CreatedBy = int(userID)
 	err = event.Save()

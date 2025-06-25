@@ -8,7 +8,7 @@ import (
 )
 
 func Authenticate(cntxt *gin.Context) {
-	token := cntxt.Request.Header.Get("Authorisation")
+	token := cntxt.Request.Header.Get("Authorization")
 	if token == "" {
 		cntxt.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"message": "Not Authorised"})
 		return
